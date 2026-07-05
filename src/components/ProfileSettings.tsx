@@ -4,6 +4,7 @@ import { deleteProfile } from '../lib/storage'
 import { changePin, clearSession, verifyPin } from '../lib/auth'
 import { formatPractitionerName } from '../lib/names'
 import { importRibDocument } from '../lib/ribDocument'
+import { formatInvoiceNumber, resolveInvoicePrefix } from '../lib/invoiceNumbers'
 import { useAutoSaveProfile } from '../hooks/useAutoSaveProfile'
 import { getProfileStatus, profileCompletion } from '../lib/profileStatus'
 import { CloudLogin } from './CloudLogin'
@@ -229,7 +230,13 @@ export function ProfileSettings({ profile, onSaved, onLogout }: Props) {
             Remise à zéro chaque année
           </label>
           <p className="field-hint">
-            Prochain n° : <strong>{form.invoiceNumberPrefix}{String(form.nextInvoiceNumber).padStart(form.invoiceNumberPadding, '0')}</strong>
+            Prochain n° :{' '}
+            <strong>
+              {formatInvoiceNumber(form, form.nextInvoiceNumber)}
+            </strong>
+            {form.invoiceResetYearly && !form.invoiceNumberPrefix && (
+              <span> (préfixe auto : {resolveInvoicePrefix(form)})</span>
+            )}
           </p>
         </fieldset>
 

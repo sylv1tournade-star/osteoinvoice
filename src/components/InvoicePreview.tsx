@@ -1,5 +1,5 @@
 import type { InvoiceData, PractitionerProfile } from '../types'
-import { formatPractitionerName } from '../lib/names'
+import { formatPatientName, formatPractitionerName } from '../lib/names'
 import { paymentLabel, isVirement } from '../types'
 
 interface Props {
@@ -14,13 +14,14 @@ function formatDateFR(iso: string): string {
 }
 
 export function InvoicePreview({ profile, invoice }: Props) {
-  const patientName = `${invoice.patientLastName.toUpperCase()} ${invoice.patientFirstName}`
+  const patientName = formatPatientName(invoice.patientFirstName, invoice.patientLastName)
   const practitionerName = formatPractitionerName(profile.firstName, profile.lastName)
 
   return (
     <div className="invoice-sheet" id="invoice-preview">
       <header className="invoice-header">
         <h1>FACTURE/QUITTANCE</h1>
+        <p className="invoice-number">Facture n° {invoice.invoiceNumber}</p>
         <p className="practitioner-name">{practitionerName}</p>
         {profile.subtitleLine1 && <p>{profile.subtitleLine1}</p>}
         {(profile.doNumber || profile.subtitleLine2) && (

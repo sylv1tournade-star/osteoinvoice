@@ -20,6 +20,7 @@ import { generatePdfFromElement, downloadBlob } from './lib/pdf'
 import { sharePdf, shareViaEmail, shareViaWhatsApp } from './lib/share'
 import { printInvoice } from './lib/print'
 import { formatPractitionerName } from './lib/names'
+import { patientDisplayName } from './lib/generateInvoicePdf'
 import { todayISO, computePrice } from './lib/pricing'
 import { incrementInvoiceNumber } from './lib/storage'
 import { upsertPatient } from './lib/patients'
@@ -157,7 +158,7 @@ function App() {
     try {
       const blob = await generatePdfFromElement(el)
       const filename = `facture_${invoice.patientLastName}_${invoice.consultationDate}.pdf`
-      const patientName = `${invoice.patientFirstName} ${invoice.patientLastName}`
+      const patientName = patientDisplayName(invoice)
       if (method === 'native') {
         const result = await sharePdf(blob, filename, patientName)
         if (result === 'shared') setMessage('Facture partagée !')

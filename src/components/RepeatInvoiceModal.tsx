@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { StoredInvoice } from '../types'
 import { todayISO, computePrice } from '../lib/pricing'
+import { formatPatientName } from '../lib/names'
 import { VoiceInputButton } from './VoiceInputButton'
 
 interface Props {
@@ -28,7 +29,7 @@ export function RepeatInvoiceModal({ stored, childPrice, adultPrice, onClose, on
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <h3 id="repeat-title">Répéter la facture</h3>
         <p className="modal-patient">
-          {inv.patientLastName} {inv.patientFirstName}
+          {formatPatientName(inv.patientFirstName, inv.patientLastName)}
         </p>
         <label>
           Date de consultation

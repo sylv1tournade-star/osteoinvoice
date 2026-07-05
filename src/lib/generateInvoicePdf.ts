@@ -2,7 +2,26 @@ import { createRoot } from 'react-dom/client'
 import { createElement } from 'react'
 import type { InvoiceData, PractitionerProfile } from '../types'
 import { InvoicePreview } from '../components/InvoicePreview'
+import { formatPatientName } from './names'
 import { generatePdfFromElement } from './pdf'
+
+async function waitForImages(container: HTMLElement): Promise<void> {
+  const images = Array.from(container.querySelectorAll('img'))
+  await Promise.all(
+    images.map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete && img.naturalHeight > 0) {
+            resolve()
+            return
+          }
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+          setTimeout(resolve, 3000)
+        })
+    )
+  )
+}
 
 export async function generateInvoicePdf(
   profile: PractitionerProfile,
@@ -14,7 +33,7 @@ export async function generateInvoicePdf(
 
   const root = createRoot(container)
   root.render(createElement(InvoicePreview, { profile, invoice }))
-  await new Promise((r) => setTimeout(r, 150))
+  await waitForImages(container)
 
   const el = container.querySelector('#invoice-preview') as HTMLElement
   const blob = await generatePdfFromElement(el)
@@ -49,5 +68,5 @@ export function patientKey(invoice: InvoiceData): string {
 }
 
 export function patientDisplayName(invoice: InvoiceData): string {
-  return `${invoice.patientFirstName} ${invoice.patientLastName}`
+  return formatPatientName(invoice.patientFirstName, invoice.patientLastName)
 }

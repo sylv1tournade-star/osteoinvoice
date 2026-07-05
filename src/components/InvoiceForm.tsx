@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { InvoiceData, PractitionerProfile } from '../types'
 import { computePrice, todayISO } from '../lib/pricing'
+import { formatPatientName } from '../lib/names'
 import { hasRib } from '../lib/rib'
 import { incrementInvoiceNumber } from '../lib/storage'
 import { searchPatients, type PatientSuggestion } from '../lib/invoices'
@@ -109,7 +110,7 @@ export function InvoiceForm({ profile, onPreview }: Props) {
                   type="button"
                   onClick={() => selectPatient(p)}
                 >
-                  {p.patientLastName.toUpperCase()} {p.patientFirstName}
+                  {formatPatientName(p.patientFirstName, p.patientLastName)}
                   <span>{p.patientBirthDate.split('-').reverse().join('/')}</span>
                 </button>
               </li>

@@ -1,4 +1,5 @@
 import type { PractitionerProfile, StoredInvoice, PatientRecord, InvoiceData } from '../../types'
+import { ensureNextInvoiceNumber, mergeInvoiceCounters } from '../invoiceNumbers'
 import { getSupabase, isSupabaseConfigured } from './client'
 import { requireSession } from '../auth'
 import { getProfile, saveProfile } from '../storage'
@@ -71,11 +72,13 @@ export async function pullFromCloud(localProfileId: string): Promise<SyncState> 
       const cloud = profileRow.profile_data as PractitionerProfile
       const local = getProfile(localProfileId)
       if (local) {
-        saveProfile({
+        const merged = {
           ...local,
           ...cloud,
+          ...mergeInvoiceCounters(local, cloud),
           id: localProfileId,
-        })
+        }
+        saveProfile(ensureNextInvoiceNumber(merged, localProfileId))
       }
     }
 
@@ -93,6 +96,10 @@ export async function pullFromCloud(localProfileId: string): Promise<SyncState> 
           invoice: r.invoice_data as InvoiceData,
         }))
       )
+      const profile = getProfile(localProfileId)
+      if (profile) {
+        saveProfile(ensureNextInvoiceNumber(profile, localProfileId))
+      }
     }
 
     const { data: patientRows } = await sb

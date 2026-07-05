@@ -3,7 +3,7 @@ import { getRecentPatients } from '../lib/patients'
 import { getDraft } from '../lib/drafts'
 import { getInvoices } from '../lib/invoices'
 import { getCurrentMonthTotal } from '../lib/stats'
-import { formatPractitionerName } from '../lib/names'
+import { formatPractitionerName, formatPatientName } from '../lib/names'
 
 interface Props {
   profile: PractitionerProfile
@@ -48,7 +48,7 @@ export function HomeScreen({
           className="btn-secondary"
           onClick={() => onRepeatInvoice(lastInvoice)}
         >
-          Répéter : {lastInvoice.invoice.patientLastName} {lastInvoice.invoice.patientFirstName}
+          Répéter : {formatPatientName(lastInvoice.invoice.patientFirstName, lastInvoice.invoice.patientLastName)}
         </button>
       )}
 

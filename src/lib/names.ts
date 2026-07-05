@@ -1,3 +1,10 @@
+/** Affiche "Sylvain Tournade" (prénom puis nom) */
+export function formatPatientName(firstName: string, lastName: string): string {
+  const first = capitalize(firstName.trim())
+  const last = capitalize(lastName.trim())
+  return `${first} ${last}`
+}
+
 /** Affiche "Fabrice Hassen" (prénom puis nom) */
 export function formatPractitionerName(firstName: string, lastName: string): string {
   const first = capitalize(firstName.trim())

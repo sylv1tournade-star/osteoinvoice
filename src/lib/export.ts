@@ -5,7 +5,7 @@ import { getPatients } from './patients'
 import { getProfile } from './storage'
 import { paymentLabel } from '../types'
 import { generateInvoicePdfs } from './generateInvoicePdf'
-import { formatPractitionerName } from './names'
+import { formatPractitionerName, formatPatientName } from './names'
 
 export function getInvoicesForMonth(yearMonth: string, profileId?: string): StoredInvoice[] {
   const [y, m] = yearMonth.split('-')
@@ -27,7 +27,7 @@ export function exportMonthCsv(yearMonth: string, profileId?: string): Blob {
       [
         invoice.invoiceNumber,
         invoice.invoiceDate,
-        `${invoice.patientLastName} ${invoice.patientFirstName}`,
+        formatPatientName(invoice.patientFirstName, invoice.patientLastName),
         invoice.patientBirthDate,
         invoice.consultationDate,
         String(invoice.amount),

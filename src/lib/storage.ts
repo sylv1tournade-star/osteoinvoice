@@ -4,6 +4,7 @@ import { removePin } from './auth'
 import { deleteAllInvoices } from './invoices'
 import { deleteAllPatients } from './patients'
 import { deleteDraftForProfile } from './drafts'
+import { ensureNextInvoiceNumber, formatInvoiceNumber } from './invoiceNumbers'
 
 const LEGACY_KEY = 'osteofacture_profiles'
 const LEGACY_ACTIVE = 'osteofacture_active_profile'
@@ -160,23 +161,14 @@ export function createProfile(firstName: string, lastName: string): Practitioner
 }
 
 export function incrementInvoiceNumber(profileId: string): string {
-  const profile = loadProfileData(profileId)
+  let profile = loadProfileData(profileId)
   if (!profile) return '0001'
-  const year = new Date().getFullYear()
-  if (profile.invoiceResetYearly && profile.lastInvoiceYear !== year) {
-    profile.nextInvoiceNumber = 1
-    profile.lastInvoiceYear = year
-  }
-  const padding = profile.invoiceNumberPadding || 4
+
+  profile = ensureNextInvoiceNumber(profile, profileId)
   const num = profile.nextInvoiceNumber
-  profile.nextInvoiceNumber++
-  const padded = String(num).padStart(padding, '0')
-  let prefix = profile.invoiceNumberPrefix ?? ''
-  if (profile.invoiceResetYearly && !prefix.includes(String(year))) {
-    prefix = prefix ? prefix : `${year}-`
-  }
+  profile.nextInvoiceNumber = num + 1
   saveProfileData(profile)
-  return `${prefix}${padded}`
+  return formatInvoiceNumber(profile, num)
 }
 
 export function deleteProfile(profileId: string) {

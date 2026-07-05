@@ -21,8 +21,8 @@ export async function sharePdfs(
       : `Facture - ${patientName}`
   const text =
     count > 1
-      ? `${count} notes d'honoraires pour ${patientName}`
-      : `Note d'honoraires pour ${patientName}`
+      ? `${count} factures pour ${patientName}`
+      : `Facture pour ${patientName}`
 
   if (navigator.canShare?.({ files: pdfFiles })) {
     try {
@@ -52,12 +52,12 @@ export function shareViaEmail(
 ): void {
   const subject =
     count > 1
-      ? encodeURIComponent(`${count} notes d'honoraires - ${patientName}`)
-      : encodeURIComponent(`Note d'honoraires - ${patientName}`)
+      ? encodeURIComponent(`${count} factures - ${patientName}`)
+      : encodeURIComponent(`Facture - ${patientName}`)
   const body = encodeURIComponent(
     count > 1
-      ? `Bonjour,\n\nVeuillez trouver ci-joint ${count} notes d'honoraires pour ${patientName}.\n\nCordialement`
-      : `Bonjour,\n\nVeuillez trouver ci-joint la note d'honoraires pour ${patientName}.\n\nCordialement`
+      ? `Bonjour,\n\nVeuillez trouver ci-joint ${count} factures pour ${patientName}.\n\nCordialement`
+      : `Bonjour,\n\nVeuillez trouver ci-joint la facture pour ${patientName}.\n\nCordialement`
   )
   const mailto = email
     ? `mailto:${email}?subject=${subject}&body=${body}`
@@ -68,8 +68,8 @@ export function shareViaEmail(
 export function shareViaWhatsApp(patientName: string, count = 1): void {
   const text = encodeURIComponent(
     count > 1
-      ? `Bonjour, voici ${count} notes d'honoraires pour ${patientName}. (Joignez les PDF téléchargés)`
-      : `Bonjour, voici la note d'honoraires pour ${patientName}. (Joignez le PDF téléchargé)`
+      ? `Bonjour, voici ${count} factures pour ${patientName}.`
+      : `Bonjour, voici la facture pour ${patientName}.`
   )
   window.open(`https://wa.me/?text=${text}`, '_blank')
 }
