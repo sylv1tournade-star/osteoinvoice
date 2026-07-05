@@ -1,57 +1,69 @@
-# Personnaliser les emails Supabase (OsteoFacture)
+# Emails Supabase — expéditeur, spam, personnalisation
 
-Dashboard : **Authentication → Email Templates**
+## Expéditeur par défaut (sans SMTP custom)
 
-## Modèles disponibles
-
-| Modèle | Usage |
+| | |
 |---|---|
-| **Confirm signup** | Email de confirmation à la création de compte |
-| **Magic Link** | Connexion sans mot de passe (non utilisé ici) |
-| **Reset Password** | Mot de passe oublié |
-| **Change Email Address** | Changement d’email |
+| **Adresse** | `noreply@mail.app.supabase.io` |
+| **Nom affiché** | Supabase (générique) |
+| **Usage officiel** | Tests / dev uniquement |
+| **Limite** | ~2–4 emails / heure (service partagé) |
+| **Spam** | **Fréquent** — domaine partagé, mauvaise réputation globale |
 
-## Simplifier (recommandé pour Fabrice)
+Supabase indique que ce service **n’est pas prévu pour la production**.
 
-**Authentication → Providers → Email** :
+On **ne peut pas garantir** depuis l’app que ces mails arrivent en boîte de réception.
 
-- Désactiver **« Confirm email »** → connexion immédiate, pas d’email à cliquer
-- Les comptes sont créés directement à la fin de l’onboarding
+---
 
-## Personnaliser le contenu
+## Désactiver la confirmation email (obligatoire)
 
-Dans chaque template, variables Supabase :
+1. Ouvrir [Supabase → Authentication → Providers → Email](https://supabase.com/dashboard/project/wqoqvplcetliwdcaoxve/auth/providers)
+2. **Désactiver « Confirm email »**
+3. **Save**
 
-- `{{ .ConfirmationURL }}` — lien de confirmation
-- `{{ .SiteURL }}` — URL de l’app (Settings → Authentication → URL Configuration)
-- `{{ .Email }}` — email du praticien
+Sans ça, le compte est créé mais reste inactif jusqu’au clic dans un email.
 
-Exemple sujet **Confirm signup** :
-```
-Confirmez votre compte OsteoFacture
-```
+Avec cette option off : compte **actif immédiatement** à la fin de l’onboarding OsteoFacture.
 
-Exemple corps (HTML) :
-```html
-<p>Bonjour,</p>
-<p>Cliquez pour activer votre sauvegarde cloud OsteoFacture :</p>
-<p><a href="{{ .ConfirmationURL }}">Confirmer mon compte</a></p>
-<p>Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.</p>
-```
+---
 
-## URL de redirection
+## Expéditeur par défaut (si emails encore envoyés)
+
+**Project Settings → Authentication → SMTP Settings**
+
+| Champ | Exemple Brevo |
+|---|---|
+| Sender email | `facturation@votredomaine.fr` |
+| Sender name | `OsteoFacture` |
+| Host | `smtp-relay.brevo.com` |
+| Port | `587` |
+
+**Anti-spam obligatoire :**
+- Domaine à vous (pas `@gmail.com`)
+- Enregistrements **SPF + DKIM** (Brevo les fournit)
+- Idéalement **DMARC**
+
+Sans domaine vérifié, Brevo peut aussi finir en spam.
+
+---
+
+## Personnaliser le texte
+
+**Authentication → Email Templates** — modèles Confirm signup, Reset Password, etc.
+
+Variables : `{{ .ConfirmationURL }}`, `{{ .SiteURL }}`, `{{ .Email }}`
 
 **Authentication → URL Configuration** :
+- Site URL : `https://facture-osteo.vercel.app`
+- Redirect URLs : + `http://localhost:5173`
 
-- **Site URL** : `https://facture-osteo.vercel.app` (ou votre domaine)
-- **Redirect URLs** : ajouter la même URL + `http://localhost:5173` pour le dev
+---
 
-## SMTP custom (Brevo, optionnel)
+## Récap OsteoFacture
 
-**Project Settings → Authentication → SMTP Settings** :
-
-- Activer custom SMTP
-- Hôte Brevo : `smtp-relay.brevo.com`, port 587
-- Expéditeur : `facturation@votredomaine.fr`
-
-Utile si les emails Supabase finissent en spam. Pas nécessaire au démarrage.
+| Besoin | Solution |
+|---|---|
+| Fabrice sans friction | Désactiver confirm email |
+| Emails fiables | Domaine + Brevo SMTP + SPF/DKIM |
+| Texte des mails | Email Templates Supabase |

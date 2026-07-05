@@ -128,9 +128,7 @@ export function Onboarding({ profile, onComplete }: Props) {
         const cloud = await registerCloudAndSync(saved, cloudEmail, cloudPassword)
         if (cloud.state === 'synced') {
           flash = 'Configuration terminée — sauvegarde cloud activée ☁️'
-        } else if (cloud.needsEmailConfirm) {
-          flash = cloud.message
-        } else if (cloud.state === 'error') {
+        } else if (cloud.message) {
           flash = `Profil enregistré. Cloud : ${cloud.message}`
         }
       }

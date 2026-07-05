@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase/client'
+import { registerCloudAndSync } from '../lib/supabase/cloudAuth'
 import { pullFromCloud, syncBidirectional, type SyncState } from '../lib/supabase/sync'
 import type { PractitionerProfile } from '../types'
 
@@ -45,32 +46,34 @@ export function CloudLogin({ profile, onSyncChange, onDataChanged }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const sb = getSupabase()
-    if (!sb) return
-
     setLoading(true)
     setMessage('')
 
     try {
-      const result =
-        mode === 'login'
-          ? await sb.auth.signInWithPassword({ email, password })
-          : await sb.auth.signUp({ email, password })
-
-      if (result.error) throw result.error
-
-      if (mode === 'signup' && result.data.user && !result.data.session) {
-        setMessage('Compte créé — vérifiez votre email pour confirmer, puis reconnectez-vous.')
-        setLoading(false)
-        return
+      if (mode === 'login') {
+        const sb = getSupabase()
+        if (!sb) return
+        const { error } = await sb.auth.signInWithPassword({ email, password })
+        if (error) throw error
+        const syncState = await syncBidirectional(profile)
+        onSyncChange?.(syncState)
+        onDataChanged?.()
+        setLoggedIn(true)
+        setUserEmail(email)
+        setMessage(syncState === 'synced' ? 'Connecté et synchronisé (↕)' : 'Connecté')
+      } else {
+        const result = await registerCloudAndSync(profile, email, password)
+        if (result.state === 'error') {
+          setMessage(result.message)
+          onSyncChange?.('error')
+          return
+        }
+        setLoggedIn(true)
+        setUserEmail(email)
+        onSyncChange?.(result.state)
+        onDataChanged?.()
+        setMessage(result.message || 'Compte créé')
       }
-
-      setLoggedIn(true)
-      setUserEmail(email)
-      const syncState = await syncBidirectional(profile)
-      onSyncChange?.(syncState)
-      onDataChanged?.()
-      setMessage(syncState === 'synced' ? 'Connecté et synchronisé (↕ cloud)' : 'Connecté')
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Erreur de connexion')
       onSyncChange?.('error')
@@ -130,8 +133,7 @@ export function CloudLogin({ profile, onSyncChange, onDataChanged }: Props) {
     <section className="cloud-section">
       <h3>Compte cloud (sauvegarde)</h3>
       <p className="field-hint">
-        Email + mot de passe pour sauvegarder et retrouver vos factures sur un autre appareil.
-        Pas besoin de Brevo : Supabase envoie un email de confirmation (vérifiez les spams).
+        Email + mot de passe — connexion immédiate, sans email de confirmation.
       </p>
       <form onSubmit={handleSubmit} className="cloud-form">
         <label>

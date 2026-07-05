@@ -5,8 +5,10 @@ import { syncBidirectional, type SyncState } from './sync'
 export interface CloudSetupResult {
   state: SyncState
   message: string
-  needsEmailConfirm: boolean
 }
+
+const NO_SESSION_HINT =
+  'Compte créé mais non connecté — désactivez « Confirm email » dans Supabase (Authentication → Email).'
 
 export async function registerCloudAndSync(
   profile: PractitionerProfile,
@@ -14,12 +16,12 @@ export async function registerCloudAndSync(
   password: string
 ): Promise<CloudSetupResult> {
   if (!isSupabaseConfigured()) {
-    return { state: 'unconfigured', message: '', needsEmailConfirm: false }
+    return { state: 'unconfigured', message: '' }
   }
 
   const sb = getSupabase()
   if (!sb) {
-    return { state: 'unconfigured', message: '', needsEmailConfirm: false }
+    return { state: 'unconfigured', message: '' }
   }
 
   const trimmedEmail = email.trim().toLowerCase()
@@ -27,7 +29,6 @@ export async function registerCloudAndSync(
     return {
       state: 'error',
       message: 'Email et mot de passe cloud requis (6 caractères min.)',
-      needsEmailConfirm: false,
     }
   }
 
@@ -50,44 +51,27 @@ export async function registerCloudAndSync(
           password,
         })
         if (signInError) {
-          return {
-            state: 'error',
-            message: signInError.message,
-            needsEmailConfirm: false,
-          }
+          return { state: 'error', message: signInError.message }
         }
         session = signInData.session
       } else {
-        return {
-          state: 'error',
-          message: signUpError.message,
-          needsEmailConfirm: false,
-        }
+        return { state: 'error', message: signUpError.message }
       }
     } else {
       session = signUpData.session
       if (!session && signUpData.user) {
-        return {
-          state: 'local',
-          message: 'Compte créé — confirmez l’email reçu, puis reconnectez-vous dans Profil.',
-          needsEmailConfirm: true,
-        }
+        return { state: 'error', message: NO_SESSION_HINT }
       }
     }
   }
 
   if (!session) {
-    return {
-      state: 'error',
-      message: 'Connexion cloud impossible',
-      needsEmailConfirm: false,
-    }
+    return { state: 'error', message: 'Connexion cloud impossible' }
   }
 
   const state = await syncBidirectional(profile)
   return {
     state,
     message: state === 'synced' ? 'Sauvegarde cloud activée' : 'Erreur de synchronisation',
-    needsEmailConfirm: false,
   }
 }
