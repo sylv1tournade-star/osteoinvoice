@@ -187,9 +187,14 @@ function App() {
     return (
       <Onboarding
         profile={profile}
-        onComplete={() => {
+        onComplete={(flash) => {
           refreshProfile()
           setTab('home')
+          runAutoSync().then(setSyncState)
+          if (flash) {
+            setCreatedFlash(flash)
+            setTimeout(() => setCreatedFlash(null), 5000)
+          }
         }}
       />
     )

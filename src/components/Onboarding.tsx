@@ -1,26 +1,47 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { PractitionerProfile } from '../types'
 import { hasPin, setPin as setProfilePin } from '../lib/auth'
 import { saveProfile } from '../lib/storage'
 import { importRibDocument } from '../lib/ribDocument'
+import { isSupabaseConfigured } from '../lib/supabase/client'
+import { registerCloudAndSync } from '../lib/supabase/cloudAuth'
 
 interface Props {
   profile: PractitionerProfile
-  onComplete: () => void
+  onComplete: (flashMessage?: string) => void
 }
 
-const STEP_LABELS = ['PIN', 'Profil', 'Cachet', 'RIB', 'Tarifs']
+const BASE_STEPS = ['PIN', 'Profil', 'Cachet', 'RIB', 'Tarifs'] as const
+const CLOUD_STEP = 'Cloud' as const
 
 export function Onboarding({ profile, onComplete }: Props) {
+  const cloudEnabled = isSupabaseConfigured()
+  const stepLabels = useMemo(
+    () => (cloudEnabled ? [...BASE_STEPS, CLOUD_STEP] : [...BASE_STEPS]),
+    [cloudEnabled]
+  )
+
   const pinExists = hasPin(profile.id)
   const [step, setStep] = useState(pinExists ? 1 : 0)
   const [error, setError] = useState('')
+  const [finishing, setFinishing] = useState(false)
 
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
 
   const [form, setForm] = useState<PractitionerProfile>({ ...profile })
   const [ribLoading, setRibLoading] = useState(false)
+
+  const [cloudEmail, setCloudEmail] = useState(profile.email ?? '')
+  const [cloudPassword, setCloudPassword] = useState('')
+  const [cloudPasswordConfirm, setCloudPasswordConfirm] = useState('')
+  const [skipCloud, setSkipCloud] = useState(false)
+
+  const cloudStepIndex = stepLabels.indexOf(CLOUD_STEP)
+
+  useEffect(() => {
+    if (form.email && !cloudEmail) setCloudEmail(form.email)
+  }, [form.email, cloudEmail])
 
   function update(field: keyof PractitionerProfile, value: string | number) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -51,33 +72,73 @@ export function Onboarding({ profile, onComplete }: Props) {
 
   async function finish() {
     setError('')
-    if (!pinExists) {
-      if (pin.length < 4) {
-        setError('PIN : 4 chiffres minimum')
-        setStep(0)
+    setFinishing(true)
+
+    try {
+      if (!pinExists) {
+        if (pin.length < 4) {
+          setError('PIN : 4 chiffres minimum')
+          setStep(0)
+          return
+        }
+        if (pin !== confirmPin) {
+          setError('Les codes PIN ne correspondent pas')
+          setStep(0)
+          return
+        }
+        await setProfilePin(profile.id, pin)
+      }
+
+      if (!form.firstName.trim() || !form.lastName.trim()) {
+        setError('Renseignez prénom et nom')
+        setStep(1)
         return
       }
-      if (pin !== confirmPin) {
-        setError('Les codes PIN ne correspondent pas')
-        setStep(0)
-        return
+
+      if (cloudEnabled && !skipCloud && stepLabels.includes(CLOUD_STEP)) {
+        if (!cloudEmail.trim()) {
+          setError('Email de sauvegarde requis')
+          setStep(cloudStepIndex)
+          return
+        }
+        if (cloudPassword.length < 6) {
+          setError('Mot de passe cloud : 6 caractères minimum')
+          setStep(cloudStepIndex)
+          return
+        }
+        if (cloudPassword !== cloudPasswordConfirm) {
+          setError('Les mots de passe cloud ne correspondent pas')
+          setStep(cloudStepIndex)
+          return
+        }
       }
-      await setProfilePin(profile.id, pin)
-    }
 
-    if (!form.firstName.trim() || !form.lastName.trim()) {
-      setError('Renseignez prénom et nom')
-      setStep(1)
-      return
-    }
+      const saved: PractitionerProfile = {
+        ...form,
+        email: form.email.trim() || cloudEmail.trim(),
+        lastName: form.lastName.toUpperCase(),
+        subtitleLine2: form.doNumber ? `n° ${form.doNumber}` : '',
+        onboardingDone: true,
+      }
+      saveProfile(saved)
 
-    saveProfile({
-      ...form,
-      lastName: form.lastName.toUpperCase(),
-      subtitleLine2: form.doNumber ? `n° ${form.doNumber}` : '',
-      onboardingDone: true,
-    })
-    onComplete()
+      let flash: string | undefined
+
+      if (cloudEnabled && !skipCloud && cloudEmail && cloudPassword) {
+        const cloud = await registerCloudAndSync(saved, cloudEmail, cloudPassword)
+        if (cloud.state === 'synced') {
+          flash = 'Configuration terminée — sauvegarde cloud activée ☁️'
+        } else if (cloud.needsEmailConfirm) {
+          flash = cloud.message
+        } else if (cloud.state === 'error') {
+          flash = `Profil enregistré. Cloud : ${cloud.message}`
+        }
+      }
+
+      onComplete(flash)
+    } finally {
+      setFinishing(false)
+    }
   }
 
   function next() {
@@ -92,11 +153,28 @@ export function Onboarding({ profile, onComplete }: Props) {
         return
       }
     }
-    if (step === 1 && (!form.firstName.trim() || !form.lastName.trim())) {
-      setError('Prénom et nom obligatoires')
-      return
+    if (step === 1) {
+      if (!form.firstName.trim() || !form.lastName.trim()) {
+        setError('Prénom et nom obligatoires')
+        return
+      }
+      if (!cloudEmail && form.email) setCloudEmail(form.email)
     }
-    setStep((s) => Math.min(s + 1, STEP_LABELS.length - 1))
+    if (step === cloudStepIndex && !skipCloud) {
+      if (!cloudEmail.trim()) {
+        setError('Email requis')
+        return
+      }
+      if (cloudPassword.length < 6) {
+        setError('Mot de passe : 6 caractères min.')
+        return
+      }
+      if (cloudPassword !== cloudPasswordConfirm) {
+        setError('Les mots de passe ne correspondent pas')
+        return
+      }
+    }
+    setStep((s) => Math.min(s + 1, stepLabels.length - 1))
   }
 
   function back() {
@@ -111,7 +189,7 @@ export function Onboarding({ profile, onComplete }: Props) {
         <h1 className="onboarding-title">Configuration</h1>
 
         <div className="onboarding-progress onboarding-steps-row">
-          {STEP_LABELS.map((label, i) => (
+          {stepLabels.map((label, i) => (
             <div key={label} className={`onboarding-step-label ${i <= step ? 'active' : ''} ${i === step ? 'current' : ''}`}>
               <span>{i + 1}</span>
               <small>{label}</small>
@@ -156,7 +234,17 @@ export function Onboarding({ profile, onComplete }: Props) {
             <label>CP + ville<input value={form.addressLine2} onChange={(e) => update('addressLine2', e.target.value)} /></label>
             <label>Téléphone<input type="tel" value={form.phone} onChange={(e) => update('phone', e.target.value)} /></label>
             <label>Mobile<input type="tel" value={form.mobile} onChange={(e) => update('mobile', e.target.value)} /></label>
-            <label>Email pro<input type="email" value={form.email} onChange={(e) => update('email', e.target.value)} /></label>
+            <label>
+              Email pro
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => {
+                  update('email', e.target.value)
+                  setCloudEmail(e.target.value)
+                }}
+              />
+            </label>
           </div>
         )}
 
@@ -212,14 +300,59 @@ export function Onboarding({ profile, onComplete }: Props) {
           </div>
         )}
 
+        {cloudEnabled && step === cloudStepIndex && (
+          <div className="onboarding-fields">
+            <h2>Sauvegarde cloud</h2>
+            <p className="field-hint">
+              Retrouvez vos factures sur un autre téléphone. Connexion et synchronisation automatiques à la fin.
+            </p>
+            <label>
+              Email de connexion
+              <input
+                type="email"
+                value={cloudEmail}
+                onChange={(e) => setCloudEmail(e.target.value)}
+                disabled={skipCloud}
+                autoComplete="email"
+              />
+            </label>
+            <label>
+              Mot de passe cloud (6 car. min.)
+              <input
+                type="password"
+                value={cloudPassword}
+                onChange={(e) => setCloudPassword(e.target.value)}
+                disabled={skipCloud}
+                autoComplete="new-password"
+              />
+            </label>
+            <label>
+              Confirmer le mot de passe
+              <input
+                type="password"
+                value={cloudPasswordConfirm}
+                onChange={(e) => setCloudPasswordConfirm(e.target.value)}
+                disabled={skipCloud}
+                autoComplete="new-password"
+              />
+            </label>
+            <label className="checkbox-row">
+              <input type="checkbox" checked={skipCloud} onChange={(e) => setSkipCloud(e.target.checked)} />
+              Configurer la sauvegarde cloud plus tard
+            </label>
+          </div>
+        )}
+
         <div className="wizard-nav">
           {step > (pinExists ? 1 : 0) && (
             <button type="button" className="btn-text" onClick={back}>← Retour</button>
           )}
-          {step < STEP_LABELS.length - 1 ? (
+          {step < stepLabels.length - 1 ? (
             <button type="button" className="btn-primary" onClick={next}>Continuer →</button>
           ) : (
-            <button type="button" className="btn-primary" onClick={finish}>Terminer</button>
+            <button type="button" className="btn-primary" onClick={finish} disabled={finishing}>
+              {finishing ? 'Finalisation…' : 'Terminer'}
+            </button>
           )}
         </div>
       </div>
